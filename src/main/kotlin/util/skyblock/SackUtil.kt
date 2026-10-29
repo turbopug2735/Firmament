@@ -93,8 +93,8 @@ object SackUtil {
 		var foundRemoved = false
 
 		fun updateFromCleanText(cleanedText: String) {
-			cleanedText.split("\n").forEach { line ->
-				changePattern.useMatch(line) {
+			cleanedText.lineSequence().forEach { line ->
+				changePattern.useMatch(line.removeSuffix("\r")) {
 					val amount = parseShortNumber(group("amount")).toLong()
 					val itemName = group("itemName")
 					val itemId = ItemNameLookup.guessItemByName(itemName, false)
@@ -107,15 +107,22 @@ object SackUtil {
 			text.siblings.forEach(::updateFromHoverText)
 			val hoverText = (text.style.hoverEvent as? HoverEvent.ShowText)?.value ?: return
 			val cleanedText = hoverText.unformattedString
-			if (cleanedText.startsWith("Added items:\n")) {
+			val sectionStart = cleanedText.indexOf("Added items:")
+			val removedStart = cleanedText.indexOf("Removed items:")
+			val section = when {
+				sectionStart >= 0 && (removedStart < 0 || sectionStart < removedStart) -> cleanedText.substring(sectionStart)
+				removedStart >= 0 -> cleanedText.substring(removedStart)
+				else -> return
+			}
+			if (section.startsWith("Added items:")) {
 				if (!foundAdded) {
-					updateFromCleanText(cleanedText)
+					updateFromCleanText(section)
 					foundAdded = true
 				}
 			}
-			if (cleanedText.startsWith("Removed items:\n")) {
+			if (section.startsWith("Removed items:")) {
 				if (!foundRemoved) {
-					updateFromCleanText(cleanedText)
+					updateFromCleanText(section)
 					foundRemoved = true
 				}
 			}
